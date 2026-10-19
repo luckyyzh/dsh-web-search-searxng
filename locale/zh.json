@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SearXNG 搜索",
+    "description": "基于自建 SearXNG 的 web_search 搜索源：自动重定向还原、去重、同域名限流与引擎加权重排。"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SearXNG Search",
+    "description": "Self-hosted SearXNG meta-search provider for web_search, with redirect unwrapping, dedup, per-domain caps and engine-weighted reranking."
+  }
+}

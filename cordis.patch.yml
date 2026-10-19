@@ -1,0 +1,9 @@
+# dsh-web-search-searxng bundle patch: register the plugin (server-only).
+# The row `name` MUST equal the package name — the client-modules loader
+# resolves `<row-name>/package.json` to find the package.
+# The plugin id is the entry's `export const name` → "web-search-searxng".
+# Provider selection stays automatic (single usable provider) or is pinned
+# via `web` scope config `searchProvider: searxng` / DSH_WEB_SEARCH_PROVIDER.
+- insert:
+    - id: web-search-searxng
+      name: 'dsh-web-search-searxng'
