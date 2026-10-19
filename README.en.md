@@ -35,7 +35,37 @@ A [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) search-provider plugi
 | `maxPerDomain` | `2` | Max results per registrable domain |
 | `timeoutMs` / `retryDelayMs` / `cacheTtlMs` | `20000` / `1500` / `300000` | Timeout / retry delay / cache TTL |
 
-## Install (local directory)
+## Install
+
+### Option 1: dsh command (recommended)
+
+```sh
+dsh plugin add github:luckyyzh/dsh-web-search-searxng
+# once published to npm:
+dsh plugin add dsh-web-search-searxng
+```
+
+Add `--profile desktop` (or `web`/`headless`) when managing a non-default profile. Then add the config row to `~/.dsh/profiles/<profile>/cordis.patch.yml` (`baseURL` is required):
+
+```yaml
+- id: web-search-searxng
+  name: dsh-web-search-searxng
+  config:
+    baseURL: https://searxng.example.com/search-api   # your instance
+    tokenEnv: SEARXNG_TOKEN
+```
+
+and pin the provider (required whenever another search provider is also usable, otherwise `WEB_PROVIDER_AMBIGUOUS`):
+
+```yaml
+- id: web
+  config:
+    searchProvider: searxng
+```
+
+Make sure `SEARXNG_TOKEN` is visible to the DSH process, restart DSH, and `web_search` goes through SearXNG.
+
+### Option 2: manual directory install
 
 1. Copy this directory into your profile's `node_modules`:
 

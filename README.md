@@ -35,7 +35,37 @@
 | `maxPerDomain` | `2` | 同域名最多保留条数 |
 | `timeoutMs` / `retryDelayMs` / `cacheTtlMs` | `20000` / `1500` / `300000` | 超时 / 重试等待 / 缓存 |
 
-## 安装（本地目录方式）
+## 安装
+
+### 方式一：dsh 命令（推荐）
+
+```powershell
+dsh plugin add github:luckyyzh/dsh-web-search-searxng
+# 发布到 npm 后：
+dsh plugin add dsh-web-search-searxng
+```
+
+多 profile 时加 `--profile desktop`（或 `web`/`headless`）。然后在 `~/.dsh/profiles/<profile>/cordis.patch.yml` 追加配置行（`baseURL` 必填）：
+
+```yaml
+- id: web-search-searxng
+  name: dsh-web-search-searxng
+  config:
+    baseURL: https://searxng.example.com/search-api   # 你的 SearXNG 实例
+    tokenEnv: SEARXNG_TOKEN
+```
+
+并固定 provider（存在其他可用搜索源时必需，否则报 `WEB_PROVIDER_AMBIGUOUS`）：
+
+```yaml
+- id: web
+  config:
+    searchProvider: searxng
+```
+
+确保 `SEARXNG_TOKEN` 在启动 DSH 的环境中可见（用户级环境变量即可），重启 DSH 后新会话 `web_search` 即走 SearXNG。
+
+### 方式二：手动目录安装
 
 1. 把本目录复制到 profile 的 node_modules：
 
@@ -63,19 +93,9 @@
        tokenEnv: SEARXNG_TOKEN
    ```
 
-4. 确保 `SEARXNG_TOKEN` 在启动 DSH 的环境中可见（用户级环境变量即可）。
+4. 配置与 provider 固定：同方式一的配置行与 `searchProvider` pin（`- id: web` 那段），或环境变量 `DSH_WEB_SEARCH_PROVIDER=searxng`；也可在 GUI 的 Web 搜索设置里选。
 
-5. **provider 选择**：profile 里没有其他可用搜索源时会自动选用 `searxng`；只要官方源等其他源同时可用，必须显式固定，否则报 `WEB_PROVIDER_AMBIGUOUS`：
-
-   ```yaml
-   - id: web
-     config:
-       searchProvider: searxng
-   ```
-
-   或环境变量 `DSH_WEB_SEARCH_PROVIDER=searxng`；也可在 GUI 的 Web 搜索设置里选。
-
-6. 重启 DSH，新会话里调用 `web_search` 验证。
+5. 确保 `SEARXNG_TOKEN` 在启动 DSH 的环境中可见，重启 DSH，新会话里调用 `web_search` 验证。
 
 > ⚠️ 插件加载失败会阻断 DSH 启动；升级后先用 `node --check lib/index.js` + `npm test` 自检。
 
@@ -83,7 +103,7 @@
 
 ```powershell
 npm test          # quality.js 单元测试（离线）
-$env:SEARXNG_TOKEN='…'; node test/live.mjs "查询词"   # 真实端点探测
+$env:SEARXNG_URL='https://your-searxng.example/search-api'; $env:SEARXNG_TOKEN='…'; node test/live.mjs "查询词"   # 真实端点探测
 ```
 
 ## DSH 插件开发踩坑记录（本插件实测）
