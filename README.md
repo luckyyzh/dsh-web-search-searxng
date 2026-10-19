@@ -39,23 +39,47 @@
 
 ### 方式一：dsh 命令（推荐）
 
+**前置条件**：已安装 DeepSeek Harness，且 `dsh` 命令可用（`dsh --version` 有输出）。若提示找不到命令：Windows 桌面版可先使用完整路径 `"%LOCALAPPDATA%\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd"`，或把该 `bin` 目录加入 PATH。不想用命令行也可以：DSH 设置 → 插件管理 → **添加插件**，粘贴 `https://github.com/luckyyzh/dsh-web-search-searxng`。
+
+**第 1 步 · 安装插件**
+
 ```powershell
-dsh plugin add github:luckyyzh/dsh-web-search-searxng
-# 发布到 npm 后：
-dsh plugin add dsh-web-search-searxng
+# 从 GitHub 安装到 desktop profile（当前可用）
+dsh plugin --profile desktop add github:luckyyzh/dsh-web-search-searxng
+
+# 或安装指定版本 / 发布到 npm 后按包名安装
+dsh plugin --profile desktop add dsh-web-search-searxng@0.1.0
 ```
 
-多 profile 时加 `--profile desktop`（或 `web`/`headless`）。然后在 `~/.dsh/profiles/<profile>/cordis.patch.yml` 追加配置行（`baseURL` 必填）：
+> `--profile` 为必填项（`desktop` / `web` / `headless`…），且必须紧跟在 `plugin` 之后、包名参数之前。命令等价于把参数转发给 pnpm，因此支持 npm 包名、`github:owner/repo`、git URL、本地绝对路径。多个 profile 想都启用就各装一次。
+
+**第 2 步 · 配置实例地址**
+
+编辑 `~/.dsh/profiles/desktop/cordis.patch.yml`（Windows 为 `C:\Users\<你>\.dsh\profiles\desktop\cordis.patch.yml`；`--profile` 换成对应名字），在**文件末尾**追加：
 
 ```yaml
 - id: web-search-searxng
   name: dsh-web-search-searxng
   config:
-    baseURL: https://searxng.example.com/search-api   # 你的 SearXNG 实例
-    tokenEnv: SEARXNG_TOKEN
+    baseURL: https://searxng.example.com/search-api   # ← 改成你的 SearXNG 实例地址（必填，留空则插件不启用）
+    tokenEnv: SEARXNG_TOKEN                           # 存放访问令牌的环境变量名
 ```
 
-并固定 provider（存在其他可用搜索源时必需，否则报 `WEB_PROVIDER_AMBIGUOUS`）：
+**第 3 步 · 配置访问令牌**（实例无需鉴权可跳过）
+
+```powershell
+# Windows（用户级，重新登录后对 GUI 启动的 DSH 生效；或直接注销重登）
+[Environment]::SetEnvironmentVariable("SEARXNG_TOKEN", "你的令牌", "User")
+```
+
+```sh
+# macOS / Linux：写入 shell 配置后从终端启动 dsh，或用 launchctl setenv SEARXNG_TOKEN 你的令牌
+export SEARXNG_TOKEN="你的令牌"
+```
+
+**第 4 步 · 固定搜索源**（强烈建议；若 profile 里官方搜索源等其他源同时可用，跳过会报 `WEB_PROVIDER_AMBIGUOUS`）
+
+继续在同一个 yml 末尾追加：
 
 ```yaml
 - id: web
@@ -63,7 +87,18 @@ dsh plugin add dsh-web-search-searxng
     searchProvider: searxng
 ```
 
-确保 `SEARXNG_TOKEN` 在启动 DSH 的环境中可见（用户级环境变量即可），重启 DSH 后新会话 `web_search` 即走 SearXNG。
+**第 5 步 · 重启 DSH 并验证**
+
+完全退出并重新打开 DSH（插件只在启动时加载），新建会话让助手执行一次 `web_search`。走通的特征：结果无 `utm_*` 等跟踪参数、中文查询以中文站为主、同域名结果不超过 2 条。
+
+**常见报错**
+
+| 报错 | 原因与处理 |
+| --- | --- |
+| `WEB_PROVIDER_CONFIGURED_MISSING` | 插件未安装成功：`dsh plugin --profile desktop why dsh-web-search-searxng` 检查；确认 patch 行 `name: dsh-web-search-searxng` 拼写 |
+| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` 未配置（默认空）或 `tokenEnv` 指向的变量不存在 |
+| `WEB_PROVIDER_AMBIGUOUS` | 未做第 4 步的 pin |
+| 401 / `rejected the access token` | 令牌错误/过期，与实例侧核对 |
 
 ### 方式二：手动目录安装
 

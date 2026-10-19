@@ -39,23 +39,48 @@ A [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) search-provider plugi
 
 ### Option 1: dsh command (recommended)
 
+**Prerequisites**: DeepSeek Harness installed and the `dsh` command available (`dsh --version` prints a version). If it is not on your PATH, the Windows desktop app ships it at `"%LOCALAPPDATA%\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd"` (add that `bin` directory to PATH, or use the full path). No-CLI alternative: DSH settings → plugin manager → **Add plugin** and paste `https://github.com/luckyyzh/dsh-web-search-searxng`.
+
+**Step 1 · Install the plugin**
+
 ```sh
-dsh plugin add github:luckyyzh/dsh-web-search-searxng
-# once published to npm:
-dsh plugin add dsh-web-search-searxng
+# from GitHub into the desktop profile (works today)
+dsh plugin --profile desktop add github:luckyyzh/dsh-web-search-searxng
+
+# pinned version / npm package name once published
+dsh plugin --profile desktop add dsh-web-search-searxng@0.1.0
 ```
 
-Add `--profile desktop` (or `web`/`headless`) when managing a non-default profile. Then add the config row to `~/.dsh/profiles/<profile>/cordis.patch.yml` (`baseURL` is required):
+> `--profile` is required (`desktop` / `web` / `headless` …) and must come right after `plugin`, before the package argument. Arguments are forwarded to pnpm, so npm names, `github:owner/repo`, git URLs and absolute local paths all work. Install once per profile you want it on.
+
+**Step 2 · Point it at your instance**
+
+Append to the **end of** `~/.dsh/profiles/desktop/cordis.patch.yml` (use the matching directory for your `--profile`):
 
 ```yaml
 - id: web-search-searxng
   name: dsh-web-search-searxng
   config:
-    baseURL: https://searxng.example.com/search-api   # your instance
-    tokenEnv: SEARXNG_TOKEN
+    baseURL: https://searxng.example.com/search-api   # ← your SearXNG instance (required; empty = provider stays off)
+    tokenEnv: SEARXNG_TOKEN                           # env var holding the access token
 ```
 
-and pin the provider (required whenever another search provider is also usable, otherwise `WEB_PROVIDER_AMBIGUOUS`):
+**Step 3 · Provide the access token** (skip if your instance needs no auth)
+
+```powershell
+# Windows (user-level; re-login so GUI-launched DSH picks it up)
+[Environment]::SetEnvironmentVariable("SEARXNG_TOKEN", "your-token", "User")
+```
+
+```sh
+# macOS / Linux: export in your shell profile and launch dsh from a terminal,
+# or on macOS: launchctl setenv SEARXNG_TOKEN your-token
+export SEARXNG_TOKEN="your-token"
+```
+
+**Step 4 · Pin the provider** (strongly recommended; required whenever another search provider such as the built-in one is also usable, otherwise `WEB_PROVIDER_AMBIGUOUS`)
+
+Append to the same file:
 
 ```yaml
 - id: web
@@ -63,7 +88,18 @@ and pin the provider (required whenever another search provider is also usable, 
     searchProvider: searxng
 ```
 
-Make sure `SEARXNG_TOKEN` is visible to the DSH process, restart DSH, and `web_search` goes through SearXNG.
+**Step 5 · Restart DSH and verify**
+
+Fully quit and relaunch DSH (plugins load at startup only), then run `web_search` in a new session. Working signs: no `utm_*` tracking params in result URLs, CJK queries returning mostly Chinese sources, at most 2 results per domain.
+
+**Common errors**
+
+| Error | Cause / fix |
+| --- | --- |
+| `WEB_PROVIDER_CONFIGURED_MISSING` | plugin not installed: check `dsh plugin --profile desktop why dsh-web-search-searxng`; verify the patch row's `name: dsh-web-search-searxng` |
+| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` not configured (default empty) or `tokenEnv` names a missing variable |
+| `WEB_PROVIDER_AMBIGUOUS` | Step 4 pin missing |
+| 401 / `rejected the access token` | wrong or expired token — check against your instance |
 
 ### Option 2: manual directory install
 
