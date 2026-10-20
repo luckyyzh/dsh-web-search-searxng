@@ -29,7 +29,7 @@
 >
 > 改完重启 SearXNG 生效。
 
-## 配置（cordis.patch.yml `config:`，均可在运行期热改）
+## 配置（cordis.patch.yml `config:`；经设置界面保存即时生效，直接改文件需重启 DSH）
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
@@ -92,13 +92,14 @@ export SEARXNG_TOKEN="你的令牌"
 
 ```yaml
 - id: web
+  name: '@deepseek-ai/dsh-web'   # ← patch 行必须带 name，缺 name 的行会被静默跳过（不报错）
   config:
     searchProvider: searxng
 ```
 
 **第 5 步 · 重启 DSH 并验证**
 
-完全退出并重新打开 DSH（**只有新装插件**需要重启；`config:` 各项热更新，改完下一次搜索即生效），新建会话让助手执行一次 `web_search`。走通的特征：结果无 `utm_*` 等跟踪参数、中文查询以中文站为主、同域名结果不超过 2 条。
+完全退出并重新打开 DSH——**直接编辑 cordis.yml / cordis.patch.yml 都要重启才生效**（各配置层只在启动时读入；在设置面板里改动并保存才免重启）。新建会话让助手执行一次 `web_search`。走通的特征：结果无 `utm_*` 等跟踪参数、中文查询以中文站为主、同域名结果不超过 2 条。
 
 **常见报错**
 
@@ -159,3 +160,5 @@ $env:SEARXNG_URL='https://your-searxng.example/search-api'; $env:SEARXNG_TOKEN='
 - **cordis 没有 `ctx.onDispose`**：注册 effect 自动随插件 fiber 释放，apply 里无需（也不能）手动清理；注册之后再抛错会回滚本次注册。
 - **`@deepseek-ai/*` 静态导入要克制**：profile 插件能解析到 asar 内置包，但解析失败会静默杀死插件加载——非必需的服务改用动态 `import()` + 兜底。
 - **配置 `web` seam 的 patch 行 id 是 `web`**（不是 `@deepseek-ai/dsh-web`），`searchProvider` 填 provider 的 `id`（本插件为 `searxng`）。
+- **patch 行必须同时写 `id` 和 `name`**：只写 `- id: web` 不带 `name` 的条目会被合并器**静默跳过**——不报错、不生效，实测排查半天（症状：`searchProvider` 明明写了却像没写）。
+- **yml 文件改动不热加载**：`cordis.yml` / `cordis.patch.yml` 只在 DSH 启动时读入一次；直接编辑文件后必须重启。（经插件设置界面保存的改动走 plugin-manager 即时应用路径，不受此限。）

@@ -27,7 +27,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) search-provider plugi
 >   formats: [html, csv, json, rss]
 > ```
 
-## Configuration (cordis.patch.yml `config:`, all hot-reloadable)
+## Configuration (cordis.patch.yml `config:`; apply immediately when saved through the settings UI, direct file edits need a DSH restart)
 
 | Key | Default | Description |
 | --- | --- | --- |
@@ -91,13 +91,14 @@ Append to the same file:
 
 ```yaml
 - id: web
+  name: '@deepseek-ai/dsh-web'   # ← patch rows need `name`; a row without it is silently skipped
   config:
     searchProvider: searxng
 ```
 
 **Step 5 · Restart DSH and verify**
 
-Fully quit and relaunch DSH (only a **newly installed plugin** needs the restart — `config:` values are hot-reloaded and apply on the very next search), then run `web_search` in a new session. Working signs: no `utm_*` tracking params in result URLs, CJK queries returning mostly Chinese sources, at most 2 results per domain.
+Fully quit and relaunch DSH — **edits to `cordis.yml` / `cordis.patch.yml` only take effect at startup** (layers are read once when DSH boots; changes saved through the settings UI apply immediately without a restart), then run `web_search` in a new session. Working signs: no `utm_*` tracking params in result URLs, CJK queries returning mostly Chinese sources, at most 2 results per domain.
 
 **Common errors**
 
@@ -137,6 +138,7 @@ Fully quit and relaunch DSH (only a **newly installed plugin** needs the restart
        baseURL: https://searxng.example.com/search-api   # your instance
        tokenEnv: SEARXNG_TOKEN
    - id: web
+     name: '@deepseek-ai/dsh-web'
      config:
        searchProvider: searxng
    ```
@@ -154,6 +156,8 @@ Fully quit and relaunch DSH (only a **newly installed plugin** needs the restart
 - cordis has **no `ctx.onDispose`**; registration effects are disposed with the plugin fiber automatically. Throwing after registering rolls the registration back.
 - Prefer lazy `import()` + fallbacks for optional `@deepseek-ai/*` services: a failed static import kills plugin loading with no visible error.
 - The `web` seam's patch row id is `web` (not the package name); `searchProvider` takes the provider id (`searxng`).
+- **Patch rows need both `id` and `name`.** A row like bare `- id: web` without `name` is silently dropped by the layer merger — no error, no effect (observed: `searchProvider` written but behaving as if absent). Write `id` *and* `name`.
+- **YAML edits are not hot-reloaded.** `cordis.yml` / `cordis.patch.yml` are read once at DSH startup; restart after direct file edits. (Changes saved through the plugin settings UI go through the plugin-manager apply path and need no restart.)
 
 ## Development
 
