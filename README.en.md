@@ -20,11 +20,18 @@ A [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) search-provider plugi
 
 `GET {baseURL}/search?q=&format=json&pageno=1[&language=&time_range=&engines=]` with the `X-Search-Token` auth header.
 
+> ⚠️ **The instance must allow JSON output**: SearXNG exposes `html/csv/rss` by default and rejects `format=json` with **403**. Add the `json` entry to `settings.yml` (for Docker deployments typically `/etc/searxng/settings.yml`) and restart SearXNG:
+>
+> ```yaml
+> server:
+>   formats: [html, csv, json, rss]
+> ```
+
 ## Configuration (cordis.patch.yml `config:`, all hot-reloadable)
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `baseURL` | *(required)* | Base URL of your SearXNG instance (`/search` appended) |
+| `baseURL` | *(required)* | Base URL of your SearXNG instance (`/search` appended). Empty = provider reports itself unavailable: silently skipped when unpinned (searches silently go to another provider, no error), `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` when pinned |
 | `token` | empty | Access token; wins over `tokenEnv` |
 | `tokenEnv` | `SEARXNG_TOKEN` | Environment variable holding the token (also reads DSH's launch-environment snapshot) |
 | `engines` | empty | Comma-separated engine whitelist; empty = instance defaults |
@@ -48,7 +55,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) search-provider plugi
 dsh plugin --profile desktop add github:luckyyzh/dsh-web-search-searxng
 
 # pinned version / npm package name once published
-dsh plugin --profile desktop add dsh-web-search-searxng@0.1.0
+dsh plugin --profile desktop add dsh-web-search-searxng@0.1.1
 ```
 
 > `--profile` is required (`desktop` / `web` / `headless` …) and must come right after `plugin`, before the package argument. Arguments are forwarded to pnpm, so npm names, `github:owner/repo`, git URLs and absolute local paths all work. Install once per profile you want it on.
@@ -90,16 +97,18 @@ Append to the same file:
 
 **Step 5 · Restart DSH and verify**
 
-Fully quit and relaunch DSH (plugins load at startup only), then run `web_search` in a new session. Working signs: no `utm_*` tracking params in result URLs, CJK queries returning mostly Chinese sources, at most 2 results per domain.
+Fully quit and relaunch DSH (only a **newly installed plugin** needs the restart — `config:` values are hot-reloaded and apply on the very next search), then run `web_search` in a new session. Working signs: no `utm_*` tracking params in result URLs, CJK queries returning mostly Chinese sources, at most 2 results per domain.
 
 **Common errors**
 
 | Error | Cause / fix |
 | --- | --- |
 | `WEB_PROVIDER_CONFIGURED_MISSING` | plugin not installed: check `dsh plugin --profile desktop why dsh-web-search-searxng`; verify the patch row's `name: dsh-web-search-searxng` |
-| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` not configured (default empty) or `tokenEnv` names a missing variable |
-| `WEB_PROVIDER_AMBIGUOUS` | Step 4 pin missing |
-| 401 / `rejected the access token` | wrong or expired token — check against your instance |
+| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` empty (default) or not a valid URL. Note: a **missing environment variable** behind `tokenEnv` does *not* cause this — availability depends only on `baseURL`; without a token the request still goes out and you get 401 only if the instance requires auth |
+| `WEB_PROVIDER_AMBIGUOUS` | Step 4 pin missing (several providers usable at once; one must be chosen explicitly) |
+| 401 `rejected the access token` | wrong or expired token — check against your instance |
+| 403 `refused the request` | most often the instance has not enabled the `json` format (add it to `server.formats` in `settings.yml` and restart SearXNG); only then suspect the token |
+| No error but results are clearly not from this plugin (`utm_*` params kept, more than 2 results per domain) | `baseURL` left empty so the plugin was **silently skipped** while unpinned; or the config block was added under the wrong entry — this plugin's options must live under `- id: web-search-searxng`, not the official `web-search-deepseek` entry, even though both have a `baseURL` key |
 
 ### Option 2: manual directory install
 

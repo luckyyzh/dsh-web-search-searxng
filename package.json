@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-search-searxng",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SearXNG search provider plugin for DeepSeek Harness (self-hosted SearXNG meta-search with quality reranking).",
   "repository": {
     "type": "git",

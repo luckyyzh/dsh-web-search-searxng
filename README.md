@@ -20,11 +20,20 @@
 
 `GET {baseURL}/search?q=&format=json&pageno=1[&language=&time_range=&engines=]`，鉴权头 `X-Search-Token`。
 
+> ⚠️ **实例必须放行 JSON 输出**：SearXNG 默认只允许 `html/csv/rss`，`format=json` 的请求会被直接 **403** 拒绝。在实例的 `settings.yml`（Docker 部署常位于 `/etc/searxng/settings.yml`）确保：
+>
+> ```yaml
+> server:
+>   formats: [html, csv, json, rss]
+> ```
+>
+> 改完重启 SearXNG 生效。
+
 ## 配置（cordis.patch.yml `config:`，均可在运行期热改）
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
-| `baseURL` | （必填） | SearXNG 基地址（自动拼 `/search`），如 `https://searxng.example.com/search-api` |
+| `baseURL` | （必填） | SearXNG 基地址（自动拼 `/search`），如 `https://searxng.example.com/search-api`。留空 = provider 不可用：未 pin 时被**静默跳过**（搜索静默走其他源，不报错），pin 了则报 `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` |
 | `token` | 空 | 访问令牌，优先于 `tokenEnv` |
 | `tokenEnv` | `SEARXNG_TOKEN` | 令牌所在环境变量名（支持 DSH launch-environment 快照） |
 | `engines` | 空 | 指定引擎（逗号分隔），空=实例默认 |
@@ -48,7 +57,7 @@
 dsh plugin --profile desktop add github:luckyyzh/dsh-web-search-searxng
 
 # 或安装指定版本 / 发布到 npm 后按包名安装
-dsh plugin --profile desktop add dsh-web-search-searxng@0.1.0
+dsh plugin --profile desktop add dsh-web-search-searxng@0.1.1
 ```
 
 > `--profile` 为必填项（`desktop` / `web` / `headless`…），且必须紧跟在 `plugin` 之后、包名参数之前。命令等价于把参数转发给 pnpm，因此支持 npm 包名、`github:owner/repo`、git URL、本地绝对路径。多个 profile 想都启用就各装一次。
@@ -89,16 +98,18 @@ export SEARXNG_TOKEN="你的令牌"
 
 **第 5 步 · 重启 DSH 并验证**
 
-完全退出并重新打开 DSH（插件只在启动时加载），新建会话让助手执行一次 `web_search`。走通的特征：结果无 `utm_*` 等跟踪参数、中文查询以中文站为主、同域名结果不超过 2 条。
+完全退出并重新打开 DSH（**只有新装插件**需要重启；`config:` 各项热更新，改完下一次搜索即生效），新建会话让助手执行一次 `web_search`。走通的特征：结果无 `utm_*` 等跟踪参数、中文查询以中文站为主、同域名结果不超过 2 条。
 
 **常见报错**
 
 | 报错 | 原因与处理 |
 | --- | --- |
 | `WEB_PROVIDER_CONFIGURED_MISSING` | 插件未安装成功：`dsh plugin --profile desktop why dsh-web-search-searxng` 检查；确认 patch 行 `name: dsh-web-search-searxng` 拼写 |
-| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` 未配置（默认空）或 `tokenEnv` 指向的变量不存在 |
-| `WEB_PROVIDER_AMBIGUOUS` | 未做第 4 步的 pin |
-| 401 / `rejected the access token` | 令牌错误/过期，与实例侧核对 |
+| `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` | `baseURL` 未配置（默认空）或不合法。注意：`tokenEnv` 指向的环境变量**不存在并不会触发本错误**——可用性只取决于 `baseURL`，缺变量时照常发请求，实例要求鉴权才报 401 |
+| `WEB_PROVIDER_AMBIGUOUS` | 未做第 4 步的 pin（同时有多个搜索源可用，必须显式指定一个） |
+| 401 `rejected the access token` | 令牌错误/过期，与实例侧核对 |
+| 403 `refused the request` | 最常见：实例未放行 `json` 格式（`settings.yml` 的 `server.formats` 加上后重启 SearXNG），其次才是令牌问题 |
+| 无报错但结果明显不是本插件出的（URL 仍带 `utm_*`、同域名超过 2 条） | `baseURL` 留空导致插件被**静默跳过**（未 pin 时不报错，搜索走其他源）；或配置误写进了 `web-search-deepseek` 条目——两个条目字段同名，本插件的配置必须挂在 `- id: web-search-searxng` 下 |
 
 ### 方式二：手动目录安装
 
